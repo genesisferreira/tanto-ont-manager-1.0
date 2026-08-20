@@ -112,24 +112,30 @@ public sealed record OntIdentitySnapshot
     public string HardwareVersion { get; init; } = string.Empty;
     public string? GponPassword { get; init; }
     public DateTime CapturedAt { get; init; } = DateTime.UtcNow;
+
+    public static string NormalizeMac(string mac)
+    {
+        if (string.IsNullOrWhiteSpace(mac) || mac.Equals("Unknown", StringComparison.OrdinalIgnoreCase))
+        {
+            return mac;
+        }
+
+        var clean = mac.Replace(":", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal)
+            .Replace(".", string.Empty, StringComparison.Ordinal)
+            .Replace(" ", string.Empty, StringComparison.Ordinal);
+        if (clean.Length != 12)
+        {
+            return mac;
+        }
+
+        return string.Join(":", Enumerable.Range(0, 6).Select(i => clean.Substring(i * 2, 2)));
+    }
 }
 
 public interface IZteUnlockOrchestrator
 {
     Task<UnlockResult> ExecuteAsync(
-        AuthorizedDeviceSession session,
-        UnlockOptions options,
-        CancellationToken cancellationToken = default);
-
-    Task<bool> RollbackAsync(
-        AuthorizedDeviceSession session,
-        string ticketId,
-        CancellationToken cancellationToken = default);
-}
-
-public interface IUnlockableDeviceAdapter
-{
-    Task<UnlockResult> UnlockAsync(
         AuthorizedDeviceSession session,
         UnlockOptions options,
         CancellationToken cancellationToken = default);

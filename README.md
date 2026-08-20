@@ -1,19 +1,41 @@
-# Tanto ONT Manager
+# Tanto ONT Manager 1.0
 
-Ferramenta interna da **Tanto Telecom** para identificação, diagnóstico e, no futuro, padronização de ONTs conectadas ao computador por cabo de rede.
+Ferramenta da **Tanto Telecom** para identificação, diagnóstico e **desbloqueio universal** de ONTs ZTE conectadas por cabo de rede.
 
-A Fase 1 é **somente leitura**. A versão `0.1.8.1-lab` lê automaticamente Device, PON, WAN Status e WAN Config da F6201B V9.3.10P8N1 após o login homologado, usando somente GETs observados (`menuView` imediatamente antes de `menuData`) e aliases XML lua desta firmware. A Fase 2A intercepta e **bloqueia** o primeiro POST/PUT/PATCH/DELETE candidato **antes da rede**. A Fase 2A.1 diagnostica, de modo passivo, por que a UI autenticada pode não expor criação/edição PPPoE. Não altera WAN, PPPoE, VLAN, firmware nem a placa Ethernet.
+## Status
 
-## Status da Fase 1
+| Fase | Status | Descrição |
+|------|--------|-----------|
+| Fase 1 | Completa | Detecção, login e leitura somente leitura (F6201B V9.3.10P8N1) |
+| Fase 2A | Completa | Interceptação e bloqueio de POSTs de escrita |
+| Fase 2A.1 | Completa | Diagnóstico passivo de capacidade de escrita |
+| **Fase 3** | **Ativa** | **Desbloqueio universal com backup automático e rollback** |
 
-- Modo de operação: `Laboratório — somente leitura`
-- Versão: `0.1.8.1-lab`
-- Processamento: uma ONT por vez
-- Modelos iniciais previstos: ZTE ZXHN F6201B, F6600P, F670L
-- Detector público: F6201B por pontuação de evidências (título, Welcome to F6201B, ZTE Corporation, rodapé)
-- Autenticação autorizada: `ZteF6201BV9310P8N1AuthenticationAdapter` (um POST no endpoint observado)
-- Diagnóstico público e autenticado sanitizados exportáveis
-- Modelo futuro: Zyxel PM5301-T7 (ainda sem adaptador)
+Versão: `0.1.8.1-lab`. Processamento: uma ONT por vez.
+
+## Modelos suportados
+
+| Modelo | Firmware | Estratégia | Status |
+|--------|----------|------------|--------|
+| ZTE F6201B | V9.3.10P8N1 | Config.bin (ZCU) | Homologado |
+| ZTE F670L | V1 / V9 | Config.bin (ZCU) | Homologado |
+| ZTE F6600P | V9 | Config.bin → zteOnu fallback | Chave parcial |
+| ZTE F6645P | V9 | Config.bin → zteOnu fallback | Chave parcial |
+| ZTE H198A | V3 | zteOnu + Telnet | Homologado |
+| ZTE H199A | — | zteOnu + Telnet | Homologado |
+| ZTE H3601 | V9.1 | Config.bin / zteOnu | Homologado |
+| ZTE F6601P | — | Config.bin type 6 | Suporte limitado |
+
+Modelo futuro sem adaptador: Zyxel PM5301-T7.
+
+## Segurança
+
+- Backup automático com SHA-256 **antes** de qualquer modificação; a operação aborta se o backup falhar
+- Rollback disponível imediatamente após o desbloqueio
+- Sanitização de logs (credenciais, cookies e tokens não são gravados)
+- Telnet só LAN (WAN desabilitada por padrão após unlock)
+- Allowlist de GETs autenticados preservada no fluxo de leitura; download/upload de `config.bin` usa endpoints de backup homologados
+- Sem varredura de rede e sem desabilitar a validação TLS do Windows
 
 ## Requisitos
 
@@ -22,54 +44,58 @@ A Fase 1 é **somente leitura**. A versão `0.1.8.1-lab` lê automaticamente Dev
 - Microsoft Edge WebView2 Runtime (Evergreen)
 - Cabo Ethernet até a ONT
 - IPv4 na mesma sub-rede do equipamento
+- **Python 3.8+** (para ZCU)
+- **zte-config-utility** em `D:\Tools\zte-config-utility`
+- **zteOnu** em `D:\Tools\zteOnu\zteOnu.exe`
 
-## Como executar
+## Instalação das ferramentas externas
 
 ```powershell
-cd D:\Projetos\tanto-ont-manager
+git clone https://github.com/mkst/zte-config-utility.git D:\Tools\zte-config-utility
+pip install -r D:\Tools\zte-config-utility\requirements.txt
+# Baixe zteOnu em: https://github.com/Septrum101/zteOnu/releases
+# Extraia para: D:\Tools\zteOnu\zteOnu.exe
+```
+
+## Compilar e executar
+
+```powershell
+cd D:\Projetos\tanto-ont-manager-1.0
 dotnet restore
 dotnet build
 dotnet test
 dotnet run --project src/TantoOntManager.App/TantoOntManager.App.csproj
 ```
 
-Logs sanitizados:
+Logs sanitizados: `%LocalAppData%\TantoTelecom\TantoOntManager\logs\`
 
-`%LocalAppData%\TantoTelecom\TantoOntManager\logs\`
+Backups: `%LocalAppData%\TantoTelecom\TantoOntManager\backups\`
 
-Diagnósticos públicos:
+Diagnósticos públicos: `%LocalAppData%\TantoTelecom\TantoOntManager\diagnostics\`
 
-`%LocalAppData%\TantoTelecom\TantoOntManager\diagnostics\`
-
-## O que esta entrega faz
+## O que a leitura (Fase 1 / 2A) faz
 
 - Lista adaptadores Ethernet e o IPv4 atual
-- Mostra se há link físico
 - Testa somente `192.168.100.1`, `192.168.1.1` ou um IP informado pelo operador
-- Verifica ICMP, HTTPS e HTTP com timeout curto
-- Reconhece marcadores públicos da interface ZTE F6201B (incluindo título `F6201B`, `Welcome to F6201B` e `ZTE Corporation`)
-- Segue redirects e frames públicos no mesmo IP, só com GET
-- Mostra status HTTP, título, tamanho, hash curto, confiança e evidências
-- Exporta ZIP sanitizado da página pública
 - Login da F6201B V9.3.10P8N1: um POST no endpoint observado, cookies só em memória
-- Observação passiva dos GETs dinâmicos em WebView2 isolado (`Observar navegação GET`)
-- Mapeamento bloqueado do contrato de gravação WAN/PPPoE (Fase 2A): captura um candidato, sanitiza e cancela o envio
-- Diagnóstico passivo de capacidade de escrita (Fase 2A.1): inspeciona o DOM já carregado, exporta `write-capability-report.json` e recusa promover contrato quando PPPoE/Apply/Save não existem ou a conta aparenta leitura/preset
 - Leitura autenticada GET por tags evidenciadas e classificadas SafeRead
-- Encerrar sessão envia no máximo um POST de logout oficial e descarta cookies
-- Exporta diagnóstico autenticado sanitizado, com inspeção do ZIP
+- Observação passiva dos GETs dinâmicos em WebView2 isolado
+- Diagnóstico passivo de capacidade de escrita (Fase 2A.1)
 
-## O que esta entrega não faz
+## O que o desbloqueio (Fase 3) faz
 
-- Não altera WAN, VLAN, PPPoE ou TR-069
-- Não faz factory reset nem troca firmware
-- Não adivinha senhas e não usa credenciais de etiquetas
-- Não ativa Telnet/SSH
-- Não varre a rede
-- Não desabilita a validação TLS do Windows
-- Não declara o contrato de escrita como homologado
-- Não declara suporte a configuração PPPoE
-- Não contorna permissões, não descobre credenciais privilegiadas e não envia POST de configuração
+- Backup do `config.bin` original antes de qualquer escrita
+- Superusuário persistente, desabilitar TR-069, Telnet/SSH LAN e opcionalmente bridge
+- Estratégia por perfil (config.bin via ZCU, zteOnu + Telnet, ou híbrido)
+- Rollback pelo ticket de backup
+
+## Regras de laboratório
+
+1. Nunca desbloquear sem backup
+2. Nunca testar em modelo desconhecido
+3. Validar roundtrip primeiro na F6201B V9.3.10P8N1
+4. Não adivinhar senhas nem usar credenciais de etiquetas
+5. Não varrer a rede
 
 ## Arquitetura
 

@@ -419,7 +419,7 @@ public sealed class ZteUnlockOrchestrator : IZteUnlockOrchestrator
             Model = identity?.Model ?? "Unknown",
             FirmwareVersion = identity?.Firmware?.SoftwareVersion ?? "Unknown",
             SerialNumber = identity?.SerialNumber ?? "Unknown",
-            MacAddress = identity?.MacAddress ?? "Unknown",
+            MacAddress = OntIdentitySnapshot.NormalizeMac(identity?.MacAddress ?? "Unknown"),
             HardwareVersion = identity?.Firmware?.HardwareVersion ?? "Unknown"
         };
     }

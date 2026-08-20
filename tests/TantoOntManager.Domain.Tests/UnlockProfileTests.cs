@@ -41,6 +41,19 @@ public sealed class UnlockProfileTests
     }
 }
 
+public sealed class OntIdentitySnapshotTests
+{
+    [Theory]
+    [InlineData("AABBCCDDEEFF", "AA:BB:CC:DD:EE:FF")]
+    [InlineData("aa-bb-cc-dd-ee-ff", "aa:bb:cc:dd:ee:ff")]
+    [InlineData("AA:BB:CC:DD:EE:FF", "AA:BB:CC:DD:EE:FF")]
+    [InlineData("Unknown", "Unknown")]
+    public void NormalizeMac_formats_known_shapes(string input, string expected)
+    {
+        OntIdentitySnapshot.NormalizeMac(input).Should().Be(expected);
+    }
+}
+
 public sealed class BackupServiceTests
 {
     [Fact]
