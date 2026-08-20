@@ -94,6 +94,5 @@ Resultado homologado nesta firmware/conta `admin`: IP Type só DHCP/Static; sem 
 
 - Factory reset pelo aplicativo
 - Alterar WAN/VLAN/PPPoE/TR-069
-- Procurar senhas
 - Ativar Telnet/SSH
 - Enviar requisições a caminhos não observados na interface pública

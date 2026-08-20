@@ -18,11 +18,10 @@
 - Perfis observados na UI autenticada (lidos somente após login autorizado, sem escrita):
   - `HSI_TR069` — INTERNET_TR069, VLAN 210
   - `VOIP_IPTV` — INTERNET_VoIP, VLAN 220
-- Sem PPPoE visível na conta atual
 - Sem exportação/importação encontrada
 - Conta de laboratório com privilégios parciais
 
-Esses perfis **não** são gravados nem reaplicados nesta fase. PPPoE não é suportado como configuração.
+Esses perfis **não** são gravados nem reaplicados nesta fase.
 
 ## Sem fibra
 

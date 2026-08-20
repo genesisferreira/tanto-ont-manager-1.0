@@ -38,6 +38,5 @@ Não registrar corpo autenticado, cookies ou headers de autorização.
 
 - Sem varredura ampla.
 - Alvos permitidos: `192.168.100.1`, `192.168.1.1` ou IP informado pelo operador.
-- A placa Ethernet não é reconfigurada pelo aplicativo.
 - A exportação pública grava apenas HTML/certificado/resumo sanitizados em `%LocalAppData%\TantoTelecom\TantoOntManager\diagnostics\`.
 - Cookies, Authorization e valores digitados de usuário/senha bloqueiam a exportação.

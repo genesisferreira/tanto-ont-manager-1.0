@@ -15,4 +15,4 @@ A homologação 0.1.2 autenticou a F6201B com um POST, mas as tags GET vieram do
 
 ## Consequências
 
-Escrita WAN/PPPoE/VLAN/TR-069, firmware, reset e adivinhação de endpoints continuam proibidas.
+Escrita WAN/PPPoE/VLAN/TR-069, firmware, reset e adivinhação de endpoints continuam em fase de descoberta.
