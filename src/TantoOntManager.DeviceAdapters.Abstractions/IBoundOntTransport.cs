@@ -15,6 +15,8 @@ public sealed record BoundHttpResult(
     TimeSpan Duration,
     Error? Error)
 {
+    public byte[]? RawBody { get; init; }
+
     public static BoundHttpResult Fail(Error error, int statusCode = 0, TimeSpan duration = default, int redirectCount = 0)
         => new(false, statusCode, string.Empty, null, string.Empty, redirectCount, string.Empty, duration, error);
 }
@@ -58,6 +60,21 @@ public interface IBoundOntTransport : IDisposable
     Task<BoundHttpResult> PostLogoutFormAsync(
         IReadOnlyDictionary<string, string> form,
         CancellationToken cancellationToken);
+
+    Task<BoundHttpResult> PostAsync(
+        string pathAndQuery,
+        HttpContent content,
+        CancellationToken cancellationToken)
+        => Task.FromResult(BoundHttpResult.Fail(Error.Create(
+            ErrorCodes.PostNotAllowed,
+            "POST genérico não suportado neste transporte.")));
+
+    Task<BoundHttpResult> GetBinaryAsync(
+        string pathAndQuery,
+        CancellationToken cancellationToken)
+        => Task.FromResult(BoundHttpResult.Fail(Error.Create(
+            ErrorCodes.GetNotAllowlisted,
+            "Download binário não suportado neste transporte.")));
 
     void RememberSafeRead(string type, string tag);
 

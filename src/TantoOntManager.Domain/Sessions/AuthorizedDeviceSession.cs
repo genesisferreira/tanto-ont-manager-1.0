@@ -1,4 +1,5 @@
 using System.Net;
+using TantoOntManager.Domain.Devices;
 using TantoOntManager.Domain.Network;
 
 namespace TantoOntManager.Domain.Sessions;
@@ -11,6 +12,9 @@ public sealed class AuthorizedDeviceSession
     public bool IsAuthenticated { get; }
     public string AuthenticationMethod { get; }
     public string? BoundCertificateSha256 { get; }
+    public DeviceIdentity? Identity { get; }
+
+    public string? PinnedCertificateSha256 => BoundCertificateSha256;
 
     private AuthorizedDeviceSession(
         Guid sessionId,
@@ -18,7 +22,8 @@ public sealed class AuthorizedDeviceSession
         DateTimeOffset establishedAt,
         bool isAuthenticated,
         string authenticationMethod,
-        string? boundCertificateSha256)
+        string? boundCertificateSha256,
+        DeviceIdentity? identity)
     {
         SessionId = sessionId;
         Endpoint = endpoint;
@@ -26,16 +31,17 @@ public sealed class AuthorizedDeviceSession
         IsAuthenticated = isAuthenticated;
         AuthenticationMethod = authenticationMethod;
         BoundCertificateSha256 = boundCertificateSha256;
+        Identity = identity;
     }
 
     public static AuthorizedDeviceSession Public(OntEndpoint endpoint)
-        => new(Guid.NewGuid(), endpoint, DateTimeOffset.UtcNow, false, "public-unauthenticated", null);
+        => new(Guid.NewGuid(), endpoint, DateTimeOffset.UtcNow, false, "public-unauthenticated", null, null);
 
     public static AuthorizedDeviceSession Authenticated(
         OntEndpoint endpoint,
         string authenticationMethod,
         string? boundCertificateSha256)
-        => new(Guid.NewGuid(), endpoint, DateTimeOffset.UtcNow, true, authenticationMethod, boundCertificateSha256);
+        => new(Guid.NewGuid(), endpoint, DateTimeOffset.UtcNow, true, authenticationMethod, boundCertificateSha256, null);
 
     public IPAddress Address => Endpoint.Address;
 

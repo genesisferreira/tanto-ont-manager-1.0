@@ -8,9 +8,13 @@ using TantoOntManager.Application.Contracts;
 using TantoOntManager.Application.UseCases;
 using TantoOntManager.DeviceAdapters.Abstractions;
 using TantoOntManager.DeviceAdapters.Zte;
+using TantoOntManager.Domain.Backup;
+using TantoOntManager.Domain.Profiles;
+using TantoOntManager.Domain.Unlock;
 using TantoOntManager.Infrastructure.Export;
 using TantoOntManager.Infrastructure.Logging;
 using TantoOntManager.Infrastructure.Security;
+using TantoOntManager.Infrastructure.Unlock;
 using TantoOntManager.Networking.Discovery;
 using TantoOntManager.Networking.Probing;
 using TantoOntManager.Security.Logging;
@@ -57,8 +61,25 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IEthernetDiscoveryService, EthernetDiscoveryService>();
         services.AddSingleton<IConnectivityProbeService, ConnectivityProbeService>();
         services.AddSingleton<IPublicWebReader, HttpPublicWebReader>();
+        services.AddSingleton<ZteProfileRepository>();
+        services.AddSingleton<IBackupService>(sp =>
+            new LocalBackupService(sp.GetRequiredService<ILogger<LocalBackupService>>(), null));
+        services.AddSingleton<IConfigBinService, ZteConfigBinService>();
+        services.AddSingleton<IZcuBridge>(sp =>
+            new ZcuProcessBridge(
+                sp.GetRequiredService<ILogger<ZcuProcessBridge>>(),
+                "python",
+                @"D:\Tools\zte-config-utility"));
+        services.AddSingleton<IConfigBinXmlPatcher, ZteConfigBinXmlPatcher>();
+        services.AddSingleton<IZteOnuBridge>(sp =>
+            new ZteOnuProcessBridge(
+                sp.GetRequiredService<ILogger<ZteOnuProcessBridge>>(),
+                @"D:\Tools\zteOnu\zteOnu.exe"));
+        services.AddSingleton<ITelnetCommandClient, ZteTelnetCommandClient>();
+        services.AddSingleton<IZteUnlockOrchestrator, ZteUnlockOrchestrator>();
         services.AddSingleton<ZteDeviceAdapter>();
         services.AddSingleton<IOntDeviceAdapter>(sp => sp.GetRequiredService<ZteDeviceAdapter>());
+        services.AddSingleton<IUnlockableDeviceAdapter>(sp => sp.GetRequiredService<ZteDeviceAdapter>());
         services.AddSingleton<IBoundOntTransportFactory, BoundOntTransportFactory>();
         services.AddSingleton<IOntAuthSessionStore, OntAuthSessionStore>();
         services.AddSingleton<IOntAuthenticationAdapter, ZteF6201BV9310P8N1AuthenticationAdapter>();

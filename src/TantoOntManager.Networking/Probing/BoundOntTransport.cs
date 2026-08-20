@@ -41,6 +41,7 @@ public sealed class BoundOntTransportFactory : IBoundOntTransportFactory
 public sealed class BoundOntTransport : IBoundOntTransport
 {
     private const int MaxRedirects = 5;
+    private const int MaxConfigBinBytes = 8_388_608;
     private readonly OntEndpoint _endpoint;
     private readonly ProbeSessionSettings _settings;
     private readonly ILogger _logger;
@@ -96,7 +97,7 @@ public sealed class BoundOntTransport : IBoundOntTransport
 
     public int LogoutPostCount { get; private set; }
 
-    public int ConfigPostCount => 0;
+    public int ConfigPostCount { get; private set; }
 
     public string? SessionToken { get; private set; }
 
@@ -229,6 +230,39 @@ public sealed class BoundOntTransport : IBoundOntTransport
 
         var content = new FormUrlEncodedContent(form);
         return await SendAsync(HttpMethod.Post, uri, content, cancellationToken);
+    }
+
+    public async Task<BoundHttpResult> PostAsync(
+        string pathAndQuery,
+        HttpContent content,
+        CancellationToken cancellationToken)
+    {
+        if (!TryCreateUri(pathAndQuery, out var uri, out var error))
+        {
+            return BoundHttpResult.Fail(error!);
+        }
+
+        return await SendAsync(HttpMethod.Post, uri, content, cancellationToken);
+    }
+
+    public async Task<BoundHttpResult> GetBinaryAsync(
+        string pathAndQuery,
+        CancellationToken cancellationToken)
+    {
+        if (!TryCreateUri(pathAndQuery, out var uri, out var error))
+        {
+            return BoundHttpResult.Fail(error!);
+        }
+
+        if (!IsConfigBinDownloadPath(uri))
+        {
+            _logger.LogWarning("GET binário recusado: {Path}", F6201BV9310P8N1AuthContract.MaskUri(uri));
+            return BoundHttpResult.Fail(Error.Create(
+                ErrorCodes.GetNotAllowlisted,
+                "GET binário recusado: somente endpoints de backup/config.bin homologados."));
+        }
+
+        return await SendAsync(HttpMethod.Get, uri, null, cancellationToken, maxBodyBytes: MaxConfigBinBytes);
     }
 
     public void RememberSafeRead(string type, string tag)
@@ -373,13 +407,15 @@ public sealed class BoundOntTransport : IBoundOntTransport
         HttpMethod method,
         Uri start,
         HttpContent? content,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int? maxBodyBytes = null)
     {
         var watch = Stopwatch.StartNew();
         var current = start;
         var redirects = 0;
         var client = GetOrCreateClient();
         var cookiesBefore = DescribeCookiesDetailed();
+        var bodyLimit = maxBodyBytes ?? PublicHttpFetcher.MaxBodyBytes;
 
         try
         {
@@ -394,7 +430,8 @@ public sealed class BoundOntTransport : IBoundOntTransport
                 ApplyHomologatedAjaxHeaders(request, current);
 
                 using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-                var body = await ReadBodyAsync(response, cancellationToken);
+                var rawBody = await ReadBodyBytesAsync(response, cancellationToken, bodyLimit);
+                var body = Encoding.UTF8.GetString(rawBody);
                 var status = (int)response.StatusCode;
 
                 if ((int)response.StatusCode is >= 300 and < 400 && response.Headers.Location is { } location)
@@ -414,17 +451,39 @@ public sealed class BoundOntTransport : IBoundOntTransport
 
                     if (method == HttpMethod.Post)
                     {
+                        var isAuthPost = F6201BV9310P8N1AuthContract.IsLoginPost(current, BoundAddress)
+                                         || F6201BV9310P8N1AuthContract.IsLogoutPost(current, BoundAddress);
+                        if (isAuthPost)
+                        {
+                            Record(method, current, isPost: true);
+                            return BoundHttpResult.Fail(
+                                Error.Create(
+                                    ErrorCodes.UnexpectedRedirect,
+                                    "Redirect inesperado após o POST de login."),
+                                status,
+                                watch.Elapsed,
+                                redirects + 1);
+                        }
+
                         Record(method, current, isPost: true);
-                        return BoundHttpResult.Fail(
-                            Error.Create(
-                                ErrorCodes.UnexpectedRedirect,
-                                "Redirect inesperado após o POST de login."),
+                        ConfigPostCount++;
+                        return new BoundHttpResult(
+                            true,
                             status,
+                            body,
+                            response.Content.Headers.ContentType?.MediaType,
+                            current.ToString(),
+                            redirects + 1,
+                            AuthenticatedPayloadSanitizer.Sha256Short(body),
                             watch.Elapsed,
-                            redirects + 1);
+                            null)
+                        {
+                            RawBody = rawBody
+                        };
                     }
 
-                    if (!F6201BV9310P8N1AuthContract.IsAllowedGet(next, BoundAddress, _discoveredTags, ExtraIsProven))
+                    if (!F6201BV9310P8N1AuthContract.IsAllowedGet(next, BoundAddress, _discoveredTags, ExtraIsProven)
+                        && !IsConfigBinDownloadPath(next))
                     {
                         Record(method, current, isPost: false);
                         return BoundHttpResult.Fail(
@@ -453,6 +512,10 @@ public sealed class BoundOntTransport : IBoundOntTransport
                     else if (F6201BV9310P8N1AuthContract.IsLogoutPost(current, BoundAddress))
                     {
                         LogoutPostCount++;
+                    }
+                    else
+                    {
+                        ConfigPostCount++;
                     }
                 }
 
@@ -493,7 +556,10 @@ public sealed class BoundOntTransport : IBoundOntTransport
                     redirects,
                     hash,
                     watch.Elapsed,
-                    null);
+                    null)
+                {
+                    RawBody = rawBody
+                };
             }
 
             return BoundHttpResult.Fail(
@@ -721,15 +787,26 @@ public sealed class BoundOntTransport : IBoundOntTransport
         }
     }
 
-    private static async Task<string> ReadBodyAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    private static async Task<byte[]> ReadBodyBytesAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken,
+        int maxBodyBytes)
     {
         var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
-        if (bytes.Length > PublicHttpFetcher.MaxBodyBytes)
+        if (bytes.Length > maxBodyBytes)
         {
-            bytes = bytes[..PublicHttpFetcher.MaxBodyBytes];
+            bytes = bytes[..maxBodyBytes];
         }
 
-        return Encoding.UTF8.GetString(bytes);
+        return bytes;
+    }
+
+    private static bool IsConfigBinDownloadPath(Uri uri)
+    {
+        var path = uri.AbsolutePath.TrimEnd('/');
+        return path.Equals("/cgi-bin/backup.cgi", StringComparison.OrdinalIgnoreCase)
+               || path.Equals("/config.bin", StringComparison.OrdinalIgnoreCase)
+               || path.Equals("/cgi-bin/download.cgi", StringComparison.OrdinalIgnoreCase);
     }
 }
 
