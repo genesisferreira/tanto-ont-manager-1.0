@@ -44,17 +44,22 @@ Modelo futuro sem adaptador: Zyxel PM5301-T7.
 - Microsoft Edge WebView2 Runtime (Evergreen)
 - Cabo Ethernet até a ONT
 - IPv4 na mesma sub-rede do equipamento
-- **Python 3.8+** (para ZCU)
-- **zte-config-utility** em `D:\Tools\zte-config-utility`
+- **Python 3.11** em `D:\Tools\Python311\python.exe` (para ZCU)
+- **zte-config-utility** em `D:\Tools\zte-config-utility` (pacote `zcu` instalado no Python acima)
 - **zteOnu** em `D:\Tools\zteOnu\zteOnu.exe`
 
 ## Instalação das ferramentas externas
 
+Caminhos esperados pelo app (já usados pelo instalador `install-tools.ps1`):
+
 ```powershell
+# Python 3.11 em D:\Tools\Python311 (não depende do python do PATH)
 git clone https://github.com/mkst/zte-config-utility.git D:\Tools\zte-config-utility
-pip install -r D:\Tools\zte-config-utility\requirements.txt
-# Baixe zteOnu em: https://github.com/Septrum101/zteOnu/releases
-# Extraia para: D:\Tools\zteOnu\zteOnu.exe
+D:\Tools\Python311\python.exe -m pip install -r D:\Tools\zte-config-utility\requirements.txt
+D:\Tools\Python311\python.exe -m pip install -e D:\Tools\zte-config-utility
+# zteOnu: o asset Windows é um .tar.gz, não um .exe solto
+# https://github.com/Septrum101/zteOnu/releases/download/v0.1.3/zteOnu_0.1.3_windows_amd64.tar.gz
+# Extraia zteOnu.exe para D:\Tools\zteOnu\zteOnu.exe
 ```
 
 ## Compilar e executar

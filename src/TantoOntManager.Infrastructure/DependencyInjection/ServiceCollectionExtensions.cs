@@ -68,7 +68,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IZcuBridge>(sp =>
             new ZcuProcessBridge(
                 sp.GetRequiredService<ILogger<ZcuProcessBridge>>(),
-                "python",
+                @"D:\Tools\Python311\python.exe",
                 @"D:\Tools\zte-config-utility"));
         services.AddSingleton<IConfigBinXmlPatcher, ZteConfigBinXmlPatcher>();
         services.AddSingleton<IZteOnuBridge>(sp =>
